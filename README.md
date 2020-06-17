@@ -40,3 +40,25 @@ By default, the state/command topics will be
 |↑|↓|↓|↓|
 
 ...corresponds to a fan ID of `1000`
+
+### Home Assistant
+To use this in Home Assistant as an MQTT Fan and MQTT Light, I'm using this config
+```yaml
+fan:
+- platform: mqtt
+  name: "Bedroom Fan"
+  state_topic: "home/hamptonbay/1000/on/state"
+  command_topic: "home/hamptonbay/1000/on/set"
+  speed_state_topic: "home/hamptonbay/1000/speed/state"
+  speed_command_topic: "home/hamptonbay/1000/speed/set"
+  speeds:
+    - low
+    - medium
+    - high
+
+light:
+- platform: mqtt
+  name: "Bedroom Fan Light"
+  state_topic: "home/hamptonbay/1000/light/state"
+  command_topic: "home/hamptonbay/1000/light/set"
+```
