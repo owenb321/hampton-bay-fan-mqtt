@@ -45,16 +45,28 @@ By default, the state/command topics will be
 To use this in Home Assistant as an MQTT Fan and MQTT Light, I'm using this config
 ```yaml
 fan:
-- platform: mqtt
-  name: "Bedroom Fan"
+- name: "Bedroom Fan"
   state_topic: "home/hamptonbay/1000/on/state"
   command_topic: "home/hamptonbay/1000/on/set"
-  speed_state_topic: "home/hamptonbay/1000/speed/state"
-  speed_command_topic: "home/hamptonbay/1000/speed/set"
-  speeds:
-    - low
-    - medium
-    - high
+  percentage_state_topic: "home/hamptonbay/1000/speed/state"
+  percentage_value_template: >-
+    {% if value == 'low' -%}
+    1
+    {%- elif value == 'medium' -%}
+    2
+    {%- else -%}
+    3
+    {%- endif %}
+  percentage_command_topic: "home/hamptonbay/1000/speed/set"
+  percentage_command_template: >-
+    {% if value | int(default=0) <= 1 -%}
+    low
+    {%- elif value | int(default=0) == 2 -%}
+    medium
+    {%- else -%}
+    high
+    {%- endif %}
+  speed_range_max: 3
 
 light:
 - platform: mqtt
