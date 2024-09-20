@@ -44,6 +44,7 @@
 #define RF_REPEATS  8
 
 // Define fan states
+#define FAN_OFF 0
 #define FAN_HI  1
 #define FAN_MED 2
 #define FAN_LOW 3
@@ -181,6 +182,15 @@ void callback(char* topic, byte* payload, unsigned int length) {
       }
       else if(strcmp(payloadChar, "high") == 0) {
         fans[idint].fanSpeed = FAN_HI;
+      }
+
+      if(strcmp(payloadChar, "off") == 0) {
+        // 'off' state is not recorded, just turn the fan off
+        fans[idint].fanState = false;
+      }
+      else {
+        // Turn on fan when speed is updated
+        fans[idint].fanState = true;
       }
     }
     else if(strcmp(attr, "light") == 0) {

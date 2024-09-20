@@ -50,7 +50,9 @@ fan:
   command_topic: "home/hamptonbay/1000/on/set"
   percentage_state_topic: "home/hamptonbay/1000/speed/state"
   percentage_value_template: >-
-    {% if value == 'low' -%}
+    {% if value == 'off' -%}
+    0
+    {% elif value == 'low' -%}
     1
     {%- elif value == 'medium' -%}
     2
@@ -59,7 +61,9 @@ fan:
     {%- endif %}
   percentage_command_topic: "home/hamptonbay/1000/speed/set"
   percentage_command_template: >-
-    {% if value | int(default=0) <= 1 -%}
+    {% if value | int(default=0) == 0 -%}
+    off
+    {%- elif value | int(default=0) == 1 -%}
     low
     {%- elif value | int(default=0) == 2 -%}
     medium
