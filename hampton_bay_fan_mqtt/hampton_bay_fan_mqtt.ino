@@ -174,22 +174,24 @@ void callback(char* topic, byte* payload, unsigned int length) {
       }
     }
     else if(strcmp(attr, "speed") == 0) {
+      uint8_t newSpeed;
       if(strcmp(payloadChar, "low") == 0) {
-        fans[idint].fanSpeed = FAN_LOW;
+        newSpeed = FAN_LOW;
       }
       else if(strcmp(payloadChar, "medium") == 0) {
-        fans[idint].fanSpeed = FAN_MED;
+        newSpeed = FAN_MED;
       }
       else if(strcmp(payloadChar, "high") == 0) {
-        fans[idint].fanSpeed = FAN_HI;
+        newSpeed = FAN_HI;
       }
 
       if(strcmp(payloadChar, "off") == 0) {
         // 'off' state is not recorded, just turn the fan off
         fans[idint].fanState = false;
       }
-      else {
+      else if (newSpeed != fans[idint].fanSpeed) {
         // Turn on fan when speed is updated
+        fans[idint].fanSpeed = newSpeed;
         fans[idint].fanState = true;
       }
     }
@@ -254,7 +256,7 @@ void setup() {
   for(int i=0; i<16; i++) {
     fans[i].lightState = false;
     fans[i].fanState = false;
-    fans[i].fanSpeed = FAN_LOW;
+    fans[i].fanSpeed = FAN_OFF;
   }
 
   ELECHOUSE_cc1101.Init();
