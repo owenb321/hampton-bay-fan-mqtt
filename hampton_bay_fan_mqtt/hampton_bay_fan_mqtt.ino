@@ -1,6 +1,10 @@
 #include <ELECHOUSE_CC1101_SRC_DRV.h>
 #include <RCSwitch.h>
-#include <ESP8266WiFi.h>
+#ifdef ESP32
+  #include <WiFi.h>
+#elif ESP8266
+  #include <ESP8266WiFi.h>
+#endif
 #include <PubSubClient.h>
 
 // Configure wifi settings
@@ -27,6 +31,10 @@
 #ifdef ESP32 // for esp32! Receiver on GPIO pin 4. Transmit on GPIO pin 2.
   #define RX_PIN 4 
   #define TX_PIN 2
+  #define SCK_PIN 18
+  #define SS_PIN 5
+  #define MISO_PIN 19
+  #define MOSI_PIN 23
 #elif ESP8266  // for esp8266! Receiver on pin 4 = D2. Transmit on pin 5 = D1.
   #define RX_PIN 4
   #define TX_PIN 5
@@ -259,10 +267,21 @@ void setup() {
     fans[i].fanSpeed = FAN_OFF;
   }
 
+#ifdef ESP32 // Override Spi pin assignments for ESP32 only
+  ELECHOUSE_cc1101.setSpiPin(SCK_PIN, MISO_PIN, MOSI_PIN, SS_PIN);
+  ELECHOUSE_cc1101.setGDO(TX_PIN, RX_PIN);
+#endif
+
   ELECHOUSE_cc1101.Init();
   ELECHOUSE_cc1101.setMHZ(FREQUENCY);
   ELECHOUSE_cc1101.SetRx();
   mySwitch.enableReceive(RX_PIN);
+
+  if (ELECHOUSE_cc1101.getCC1101()){       // Check the CC1101 Spi connection.
+  Serial.println("CC1101 Connection OK");
+  }else{
+  Serial.println("CC1101 Connection Error");
+  }
 
   setup_wifi();
   client.setServer(MQTT_HOST, MQTT_PORT);

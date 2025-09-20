@@ -1,11 +1,11 @@
 # Hampton Bay Fan MQTT
 
 ## Overview
-ESP8266 project enabling MQTT control for a Hampton Bay fan with a wireless receiver. Wireless communication is performed with a CC1101 wireless transceiver operating at 303 MHz.
+ESP8266/ESP32 project enabling MQTT control for a Hampton Bay fan with a wireless receiver. Wireless communication is performed with a CC1101 wireless transceiver operating at 303 MHz.
 
 This will also monitor for Hampton Bay RF signals so the state will stay in sync even if the original remote is used to control the fan.
 
-Fan control is not limited to a single dip switch setting, so up to 16 fans can be controlled with one ESP8266.
+Fan control is not limited to a single dip switch setting, so up to 16 fans can be controlled with one ESP8266/ESP32.
 
 ## Dependencies
 This project uses the following libraries that are available through the Arduino IDE
@@ -14,7 +14,7 @@ This project uses the following libraries that are available through the Arduino
 * [PubSubClient](https://pubsubclient.knolleary.net/) by Nick O'Leary
 
 ## Hardware
-* ESP8266 development board (Tested with a NodeMCU v2 and a D1 Mini)
+* ESP8266/ESP32 development board (Tested with a NodeMCU v2 and a D1 Mini)
 * CC1101 wireless transceiver
   * Wiring info can be found in the [SmartRC-CC1101-Driver-Lib readme](https://github.com/LSatan/SmartRC-CC1101-Driver-Lib#wiring)
 
