@@ -22,6 +22,8 @@
 #define SUBSCRIBE_TOPIC_SPEED_STATE BASE_TOPIC "/+/speed/state"
 #define SUBSCRIBE_TOPIC_LIGHT_SET BASE_TOPIC "/+/light/set"
 #define SUBSCRIBE_TOPIC_LIGHT_STATE BASE_TOPIC "/+/light/state"
+#define SUBSCRIBE_TOPIC_BRIGHTNESS_SET BASE_TOPIC "/+/brightness/set"
+#define SUBSCRIBE_TOPIC_BRIGHTNESS_STATE BASE_TOPIC "/+/brightness/state"
 
 // Set receive and transmit pin numbers (GDO0 and GDO2)
 #ifdef ESP32 // for esp32! Receiver on GPIO pin 4. Transmit on GPIO pin 2.
@@ -68,6 +70,7 @@ struct fan
   bool lightState;
   bool fanState;
   uint8_t fanSpeed;
+  uint8_t lightBrightness;
 };
 fan fans[16];
 
@@ -88,6 +91,37 @@ const char *idStrings[16] = {
     [12] = "1100", [13] = "1101", [14] = "1110", [15] = "1111",
 };
 char idchars[] = "01";
+
+int calculateBrightness(int value, bool mode) {
+  // Brightness values are based on an inverted integer scale,
+  // where 50 = 1% and 1 = 100%. 0 is off. MQTT range is 1-255.
+  if (value == 0) {
+    return 0;
+  }
+  if (!mode) {
+    int invertedIndex = map(value, 1, 255, 50, 1); // Encode for transmit
+    // Return as 6-bit binary (00111111)
+    // Minimum safe brightness is 41 = 20%
+    return (invertedIndex > 41 ? 41 : invertedIndex) & 0x3F;
+  }
+  else {
+    return map(value, 50, 1, 1, 255); // Decode after receive
+  }
+}
+
+int calculateChecksum(int number) {
+  // Checksum required on some models
+  // It is calculated by adding each of the 4-bit chunks that precede it
+  // (16-bits in all) and putting the remainder in these bits
+  int sum = 0;
+
+  while (number > 0) {
+    sum += number & 0xF;
+    number >>= 4;
+  }
+
+  return sum % 16;
+}
 
 void setup_wifi() {
 
@@ -119,16 +153,19 @@ void transmitState(int fanId) {
   mySwitch.setRepeatTransmit(RF_REPEATS); // transmission repetitions.
   mySwitch.setProtocol(RF_PROTOCOL);        // send Received Protocol
 
-  // Determine fan component of RF code
+  // Determine light and fan components of RF code
+  int lightRf = fans[fanId].lightState ? calculateBrightness(fans[fanId].lightBrightness, 0) : 0;
   int fanRf = fans[fanId].fanState ? fans[fanId].fanSpeed : 0;
   // Build out RF code
   //   Code follows the 21 bit pattern
-  //   000xxxx000000yzz00000
+  //   000xxxxaaaaaaazzbbbbb
   //   Where x is the inversed/reversed dip setting, 
-  //     y is light state, z is fan speed
-  int rfCode = dipToRfIds[fanId] << 14 | fans[fanId].lightState << 7 | fanRf << 5;
-  
-  mySwitch.send(rfCode, 21);      // send 21 bit code
+  //         a is brightness, z is fan speed
+  //         b is a checksum on some models (00000 otherwise)
+  int rfCode = dipToRfIds[fanId] << 9 | lightRf << 2 | fanRf;
+  int rfCodeSum = rfCode << 5 | calculateChecksum(rfCode);
+
+  mySwitch.send(rfCodeSum, 21);      // send 21 bit code
   ELECHOUSE_cc1101.SetRx();      // set Receive on
   mySwitch.disableTransmit();   // set Transmit off
   mySwitch.enableReceive(RX_PIN);   // Receiver on
@@ -203,6 +240,13 @@ void callback(char* topic, byte* payload, unsigned int length) {
         fans[idint].lightState = false;
       }
     }
+    else if(strcmp(attr, "brightness") == 0) {
+      int payloadInt = atoi(payloadChar);
+      fans[idint].lightBrightness = payloadInt;
+      if(strcmp(payloadChar, "0") == 0) {
+        fans[idint].lightState = false;
+      }
+    }
     if(strcmp(action, "set") == 0) {
       transmitState(idint);
     }
@@ -221,6 +265,8 @@ void postStateUpdate(int id) {
   client.publish(outTopic, fanStateTable[fans[id].fanSpeed], true);
   sprintf(outTopic, "%s/%s/light/state", BASE_TOPIC, idStrings[id]);
   client.publish(outTopic, fans[id].lightState ? "ON":"OFF", true);
+  sprintf(outTopic, "%s/%s/brightness/state", BASE_TOPIC, idStrings[id]);
+  client.publish(outTopic, String(fans[id].lightBrightness).c_str(), true);
 }
 
 void reconnect() {
@@ -239,6 +285,8 @@ void reconnect() {
       client.subscribe(SUBSCRIBE_TOPIC_SPEED_STATE);
       client.subscribe(SUBSCRIBE_TOPIC_LIGHT_SET);
       client.subscribe(SUBSCRIBE_TOPIC_LIGHT_STATE);
+      client.subscribe(SUBSCRIBE_TOPIC_BRIGHTNESS_SET);
+      client.subscribe(SUBSCRIBE_TOPIC_BRIGHTNESS_STATE);
     } else {
       Serial.print("failed, rc=");
       Serial.print(client.state());
@@ -255,6 +303,7 @@ void setup() {
   // initialize fan struct
   for(int i=0; i<16; i++) {
     fans[i].lightState = false;
+    fans[i].lightBrightness = 0;
     fans[i].fanState = false;
     fans[i].fanSpeed = FAN_OFF;
   }
@@ -289,18 +338,18 @@ void loop() {
     Serial.println(bits);
 
     if( prot == 6 && bits == 21 ) {
-      int id = value >> 14;
+      // Isolate out all payload segments
+      int id     = (value >> 14) & 0b1111;
+      int states = (value >> 5)  & 0b111111111;
+      int light  = (states >> 2) & 0b1111111;
+      int fan    = states        & 0b11;
+      int sum    = value         & 0b11111;
       // Got a correct id in the correct protocol
       if(id < 16) {
         // Convert to dip id
         int dipId = dipToRfIds[id];
         Serial.print("Received command from ID - ");
         Serial.println(dipId);
-        // Blank out id in message to get light state
-        int states = value & 0b11111111;
-        bool light = states >> 7;
-        // Blank out light state to get fan state
-        int fan = (states & 0b01111111) >> 5;
         if(fan == 0) {
           fans[dipId].fanState = false;
         }
@@ -308,7 +357,14 @@ void loop() {
           fans[dipId].fanState = true;
           fans[dipId].fanSpeed = fan;
         }
-        fans[dipId].lightState = light;
+        if(light == 0) {
+          fans[dipId].lightState = false;
+          fans[dipId].lightBrightness = 0;
+        }
+        else {
+          fans[dipId].lightState = true;
+          fans[dipId].lightBrightness = calculateBrightness(light, 1);
+        }
         postStateUpdate(dipId);
       }
     }

@@ -32,6 +32,9 @@ By default, the state/command topics will be
 * Light on/off (payload `ON` or `OFF`)
   * `home/hamptonbay/<fan_id>/light/state`
   * `home/hamptonbay/<fan_id>/light/set`
+* Light brightness (payload `int`)
+  * `home/hamptonbay/<fan_id>/brightness/state`
+  * `home/hamptonbay/<fan_id>/brightness/set`
 
 `fan_id` is a 4-digit binary number determined by the dip switch settings on the transmitter/receiver where up = 1 and down = 0. For example, the dip setting:
 
@@ -77,4 +80,9 @@ light:
   name: "Bedroom Fan Light"
   state_topic: "home/hamptonbay/1000/light/state"
   command_topic: "home/hamptonbay/1000/light/set"
+  brightness_command_topic: "home/hamptonbay/1000/brightness/set"
+  brightness_state_topic: "home/hamptonbay/1000/brightness/state"
+  brightness_command_template: {{ value | int }}
+  brightness_value_template: {{ value | int }}
+  brightness_scale: 255
 ```
